@@ -1,0 +1,121 @@
+import { Config, MrRequestBody } from './types/git-provide';
+import { Change, DiffRefs, GitlabChangesRes } from './types/gitlab-api';
+
+export class GitProvideService {
+  private userName: string;
+  private commitMessage: string;
+  private sourceBranch: string;
+  private targetBranch: string;
+  private projectName: string;
+  private projectId: number;
+  private mrId: number;
+  private baseUrl: string;
+  private gitlabToken: string;
+
+  private changes: Change[] = [];
+  private diffRefs: DiffRefs;
+
+  private originDiffTokenCount = 0;
+
+  constructor(mrRequestBody: MrRequestBody, config: Config) {
+    this.userName = mrRequestBody.user.username;
+    this.commitMessage = mrRequestBody.object_attributes.title;
+    this.sourceBranch = mrRequestBody.object_attributes.source_branch;
+    this.targetBranch = mrRequestBody.object_attributes.target_branch;
+    this.projectName = mrRequestBody.project.name;
+    this.projectId = mrRequestBody.project.id;
+    this.mrId = mrRequestBody.object_attributes.iid;
+    this.baseUrl = config.baseUrl;
+    this.gitlabToken = config.gitlabToken;
+  }
+
+  /**
+   * 获取 MR 变更文件的完整 diff 内容
+   */
+  async getFullDiff() {
+    await this.gitDiffFiles();
+
+    const tasks = this.changes.map(async (change) => {
+      change.newFileContent = await this.getFileContent(
+        change.new_path,
+        this.targetBranch,
+      );
+
+      change.oldFileContent = await this.getFileContent(
+        change.old_path,
+        this.sourceBranch,
+      );
+    });
+
+    await Promise.all(tasks);
+
+    return this.changes;
+  }
+
+  /**
+   * 获取 MR 变更文件
+   */
+  async gitDiffFiles() {
+    const url = `${this.baseUrl}/api/v4/projects/${encodeURIComponent(this.projectId)}/merge_requests/${this.mrId}/changes`;
+
+    const res = await fetch(url, {
+      headers: {
+        'PRIVATE-TOKEN': this.gitlabToken,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('API错误响应:', errorText);
+      throw new Error(`获取MR变更文件失败: ${res.status} ${res.statusText}`);
+    }
+
+    const resJson = (await res.json()) as GitlabChangesRes;
+
+    this.changes = resJson.changes;
+    this.diffRefs = resJson.diff_refs;
+
+    return resJson;
+  }
+
+  /**
+   * 获取文件的完整内容
+   * @param targetFilePath 文件路径
+   * @param branch 分支名称
+   * @returns 文件内容
+   */
+  async getFileContent(targetFilePath: string, branch: string) {
+    // 对文件路径进行双重编码，处理特殊字符
+    try {
+      const encodedFilePath = encodeURIComponent(targetFilePath).replace(
+        /\./g,
+        '%2E',
+      );
+      const url = `${this.baseUrl}/api/v4/projects/${encodeURIComponent(this.projectId)}/repository/files/${encodedFilePath}/raw?ref=${encodeURIComponent(branch)}`;
+
+      const res = await fetch(url, {
+        headers: {
+          'PRIVATE-TOKEN': this.gitlabToken,
+        },
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(
+          `获取文件内容失败: ${res.status} ${res.statusText} - 文件: ${targetFilePath}, 分支: ${branch}, error: ${errorText}`,
+        );
+
+        return '';
+      }
+
+      const fileContent = await res.text();
+      return fileContent;
+    } catch (error) {
+      console.error(
+        `获取文件内容失败: ${targetFilePath}, 分支: ${branch}, error: ${error}`,
+      );
+      return '';
+    }
+  }
+}
