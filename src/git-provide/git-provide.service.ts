@@ -17,6 +17,11 @@ export class GitProvideService {
 
   private originDiffTokenCount = 0;
 
+  private gitlabHeaders: {
+    'PRIVATE-TOKEN': string;
+    'Content-Type': string;
+  };
+
   constructor(mrRequestBody: MrRequestBody, config: Config) {
     this.userName = mrRequestBody.user.username;
     this.commitMessage = mrRequestBody.object_attributes.title;
@@ -27,6 +32,23 @@ export class GitProvideService {
     this.mrId = mrRequestBody.object_attributes.iid;
     this.baseUrl = config.baseUrl;
     this.gitlabToken = config.gitlabToken;
+
+    this.gitlabHeaders = {
+      'PRIVATE-TOKEN': this.gitlabToken,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  getMrInfo() {
+    return {
+      userName: this.userName,
+      commitMessage: this.commitMessage,
+      sourceBranch: this.sourceBranch,
+      targetBranch: this.targetBranch,
+      projectName: this.projectName,
+      projectId: this.projectId,
+      mrId: this.mrId,
+    };
   }
 
   /**
@@ -58,13 +80,11 @@ export class GitProvideService {
    * 获取 MR 变更文件
    */
   async gitDiffFiles() {
-    const url = `${this.baseUrl}/api/v4/projects/${encodeURIComponent(this.projectId)}/merge_requests/${this.mrId}/changes`;
+    const { baseUrl, projectId, mrId, gitlabHeaders } = this;
+    const url = `${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/merge_requests/${mrId}/changes`;
 
     const res = await fetch(url, {
-      headers: {
-        'PRIVATE-TOKEN': this.gitlabToken,
-        'Content-Type': 'application/json',
-      },
+      headers: gitlabHeaders,
     });
 
     if (!res.ok) {
@@ -100,17 +120,16 @@ export class GitProvideService {
    * @returns 文件内容
    */
   async getFileContent(targetFilePath: string, branch: string) {
+    const { baseUrl, projectId, gitlabToken } = this;
+
     // 对文件路径进行双重编码，处理特殊字符
     try {
-      const encodedFilePath = encodeURIComponent(targetFilePath).replace(
-        /\./g,
-        '%2E',
-      );
-      const url = `${this.baseUrl}/api/v4/projects/${encodeURIComponent(this.projectId)}/repository/files/${encodedFilePath}/raw?ref=${encodeURIComponent(branch)}`;
+      const encodedFilePath = encodeURIComponent(targetFilePath).replace(/\./g, '%2E');
+      const url = `${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/files/${encodedFilePath}/raw?ref=${encodeURIComponent(branch)}`;
 
       const res = await fetch(url, {
         headers: {
-          'PRIVATE-TOKEN': this.gitlabToken,
+          'PRIVATE-TOKEN': gitlabToken,
         },
       });
 
@@ -126,10 +145,49 @@ export class GitProvideService {
       const fileContent = await res.text();
       return fileContent;
     } catch (error) {
-      console.error(
-        `获取文件内容失败: ${targetFilePath}, 分支: ${branch}, error: ${error}`,
-      );
+      console.error(`获取文件内容失败: ${targetFilePath}, 分支: ${branch}, error: ${error}`);
       return '';
     }
+  }
+
+  async publishCommentToLine(
+    filePath: string,
+    oldPath: string,
+    endLine: number,
+    issueContent: string,
+    type: 'new' | 'old',
+  ) {
+    const { baseUrl, projectId, mrId, gitlabHeaders, diffRefs } = this;
+    const url = `${baseUrl}/api/v4/projects/${projectId}/merge_requests/${mrId}/discussions`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: gitlabHeaders,
+      body: JSON.stringify({
+        body: issueContent,
+        position: {
+          position_type: 'text',
+          base_sha: diffRefs.base_sha,
+          head_sha: diffRefs.head_sha,
+          start_sha: diffRefs.start_sha,
+          new_path: filePath,
+          old_path: oldPath,
+          new_line: type === 'new' ? endLine : null,
+          old_line: type === 'old' ? endLine : null,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`发送行级评论失败 (${response.status}):`, errorText, filePath, oldPath, endLine);
+      throw new Error(`GitLab API错误: ${response.status} - ${errorText}`);
+    }
+
+    const result = (await response.json()) as { id: string };
+
+    console.log(`行级评论发送成功 - 文件: ${filePath}, 行号: ${endLine}, 评论ID: ${result.id}`);
+
+    return result;
   }
 }

@@ -7,10 +7,7 @@ export class PromptService {
   private cachePrompt: string;
 
   constructor() {
-    this.cachePrompt = fs.readFileSync(
-      path.resolve(process.cwd(), 'public', 'prompt.txt'),
-      'utf-8',
-    );
+    this.cachePrompt = fs.readFileSync(path.resolve(process.cwd(), 'public', 'prompt.txt'), 'utf-8');
   }
 
   getMessages(query: string) {

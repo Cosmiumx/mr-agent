@@ -1,3 +1,4 @@
+import { GitProvideService } from 'src/git-provide/git-provide.service';
 import { Change } from '../git-provide/types/gitlab-api';
 import { comptuedHunkLineNumer, splitHunk } from './utils';
 
@@ -7,15 +8,21 @@ export class PatchHandler {
     this.diffFiles = diffFiles.filter((diffFile) => diffFile.diff);
   }
 
-  getExtendedDiffContent() {
+  getExtendedDiffContent(gitProvider: GitProvideService) {
     // TODO: 扩展 context
     this.extendedLines();
     // 扩展行号
     this.addLineNumber();
 
-    return this.diffFiles.reduce((pre, cur) => {
+    const { commitMessage } = gitProvider.getMrInfo();
+
+    let extendedDiff = `commit message: ${commitMessage}\n\n`;
+
+    extendedDiff += this.diffFiles.reduce((pre, cur) => {
       return pre + `## File: ${cur.new_path}\n` + cur.diff + '\n\n';
     }, '');
+
+    return extendedDiff;
   }
 
   extendedLines() {}

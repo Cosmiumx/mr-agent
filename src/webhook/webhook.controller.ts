@@ -6,21 +6,20 @@ import { GitProvideService } from '../git-provide/git-provide.service';
 import { TokenHandler } from '../tokens';
 import { PatchHandler } from '../patch';
 import { AgentService } from '../agent/agent.service';
-import { extractFirstYamlFromMarkdown } from './utils';
+import { PublishService } from 'src/publish/publish.service';
 
 @Controller('webhook')
 export class WebhookController {
   constructor(
     private readonly configService: ConfigService<EnvConfig>,
     private readonly agentService: AgentService,
+    private readonly publishService: PublishService,
   ) {}
 
   @Post()
-  async trigger(
-    @Body() body: MrRequestBody,
-    @Headers() header: Record<string, string>,
-  ) {
+  async trigger(@Body() body: MrRequestBody, @Headers() header: Record<string, string>) {
     const gitlabToken = header['x-gitlab-token'] || '';
+    const mode = (header['x-ai-mode'] || 'report') as 'report' | 'comment';
     const baseUrl = this.configService.get<string>('GITLAB_BASE_URL') || '';
 
     if (!gitlabToken) {
@@ -38,28 +37,19 @@ export class WebhookController {
 
     const patchHandler = new PatchHandler(diffFiles);
 
-    const extendedDiffContent = patchHandler.getExtendedDiffContent();
+    const extendedDiffContent = patchHandler.getExtendedDiffContent(gitProvider);
 
-    console.log('extendedDiffContent >>>', extendedDiffContent);
-
-    const [tokenCount, availableTokenCount] =
-      tokenHandler.countTokensByModel(extendedDiffContent);
+    const [tokenCount, availableTokenCount] = tokenHandler.countTokensByModel(extendedDiffContent);
 
     console.log('tokenCount >>>', tokenCount);
     console.log('availableTokenCount >>>', availableTokenCount);
 
-    const response = await this.agentService.getPrediction(extendedDiffContent);
+    const reviews = await this.agentService.getPrediction(extendedDiffContent);
 
-    const result = extractFirstYamlFromMarkdown(response);
-
-    if (result?.error) {
-      throw result.error;
+    if (reviews) {
+      this.publishService.publish(mode, reviews, gitProvider);
     }
 
-    const { parsed } = result || {};
-
-    console.log('parsed', parsed);
-
-    return 'trigger';
+    return `ok`;
   }
 }

@@ -20,8 +20,7 @@ export class TokenHandler {
     const count = tokens.length;
     encoding.free();
     this.originTokenCount = count;
-    this.availableTokenCount =
-      this.availableTokenCount - this.originTokenCount - replyTokenCount;
+    this.availableTokenCount = this.availableTokenCount - this.originTokenCount - replyTokenCount;
     return [count, this.availableTokenCount];
   }
 }

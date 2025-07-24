@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { DeepSeekChatResponse } from './types';
+import { DeepSeekChatResponse, MRReview, YamlContent } from './types';
 import { PromptService } from '../prompt/prompt.service';
 import { EnvConfig } from '../types';
 import { ConfigService } from '@nestjs/config';
+import { parse } from 'yaml';
 
 @Injectable()
 export class AgentService {
@@ -19,6 +20,17 @@ export class AgentService {
   }
 
   async getPrediction(query: string) {
+    const answer = await this.callAgent(query);
+    const result = this.extractFirstYamlFromMarkdown(answer);
+
+    if (result?.error) {
+      throw result.error;
+    }
+
+    return result?.parsed?.reviews;
+  }
+
+  async callAgent(query: string) {
     const url = this.agentUrl;
 
     const response = await fetch(url, {
@@ -84,5 +96,31 @@ export class AgentService {
       }
     }
     return answer;
+  }
+
+  extractFirstYamlFromMarkdown(markdownText: string, isParse = true) {
+    const regex = /```yaml\s*([\s\S]*?)\s*```/;
+    const match = regex.exec(markdownText);
+
+    if (!match) {
+      return null;
+    }
+
+    const yamlContent = match[1];
+    const result: YamlContent = {
+      content: yamlContent,
+      parsed: null,
+      error: null,
+    };
+
+    if (isParse) {
+      try {
+        result.parsed = parse(yamlContent) as MRReview;
+      } catch (e) {
+        result.error = e instanceof Error ? e : new Error(String(e));
+      }
+    }
+
+    return result;
   }
 }

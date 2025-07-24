@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { WebhookController } from './webhook/webhook.controller';
 import { AgentService } from './agent/agent.service';
 import { PromptService } from './prompt/prompt.service';
+import { PublishService } from './publish/publish.service';
 
 @Module({
   imports: [
@@ -14,6 +15,6 @@ import { PromptService } from './prompt/prompt.service';
     }),
   ],
   controllers: [AppController, WebhookController],
-  providers: [AppService, AgentService, PromptService],
+  providers: [AppService, AgentService, PromptService, PublishService],
 })
 export class AppModule {}
