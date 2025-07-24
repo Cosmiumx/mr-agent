@@ -46,6 +46,8 @@ export class WebhookController {
 
     const reviews = await this.agentService.getPrediction(extendedDiffContent);
 
+    console.log('reviews >>>', reviews);
+
     if (reviews) {
       this.publishService.publish(mode, reviews, gitProvider);
     }

@@ -151,7 +151,7 @@ export class GitProvideService {
   }
 
   async publishCommentToLine(
-    filePath: string,
+    newPath: string,
     oldPath: string,
     endLine: number,
     issueContent: string,
@@ -160,33 +160,35 @@ export class GitProvideService {
     const { baseUrl, projectId, mrId, gitlabHeaders, diffRefs } = this;
     const url = `${baseUrl}/api/v4/projects/${projectId}/merge_requests/${mrId}/discussions`;
 
+    const position = {
+      position_type: 'text',
+      base_sha: diffRefs.base_sha,
+      head_sha: diffRefs.head_sha,
+      start_sha: diffRefs.start_sha,
+      new_path: newPath,
+      old_path: oldPath,
+      new_line: type === 'new' ? endLine : undefined,
+      old_line: type === 'old' ? endLine : undefined,
+    };
+
     const response = await fetch(url, {
       method: 'POST',
       headers: gitlabHeaders,
       body: JSON.stringify({
         body: issueContent,
-        position: {
-          position_type: 'text',
-          base_sha: diffRefs.base_sha,
-          head_sha: diffRefs.head_sha,
-          start_sha: diffRefs.start_sha,
-          new_path: filePath,
-          old_path: oldPath,
-          new_line: type === 'new' ? endLine : null,
-          old_line: type === 'old' ? endLine : null,
-        },
+        position,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`发送行级评论失败 (${response.status}):`, errorText, filePath, oldPath, endLine);
-      throw new Error(`GitLab API错误: ${response.status} - ${errorText}`);
+      console.error(`发送行级评论失败 (${response.status}):`, errorText, newPath, oldPath, endLine);
+      return '';
     }
 
     const result = (await response.json()) as { id: string };
 
-    console.log(`行级评论发送成功 - 文件: ${filePath}, 行号: ${endLine}, 评论ID: ${result.id}`);
+    console.log(`行级评论发送成功 - 文件: ${newPath}, 行号: ${endLine}, 评论ID: ${result.id}`);
 
     return result;
   }

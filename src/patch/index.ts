@@ -19,7 +19,7 @@ export class PatchHandler {
     let extendedDiff = `commit message: ${commitMessage}\n\n`;
 
     extendedDiff += this.diffFiles.reduce((pre, cur) => {
-      return pre + `## File: ${cur.new_path}\n` + cur.diff + '\n\n';
+      return pre + `## new_path: ${cur.new_path}\n` + `## old_path: ${cur.old_path}\n` + cur.diff + '\n\n';
     }, '');
 
     return extendedDiff;

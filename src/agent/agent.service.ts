@@ -65,7 +65,6 @@ export class AgentService {
       done = streamDone;
       if (value) {
         buffer += decoder.decode(value, { stream: true });
-        console.log('buffer >>>', buffer);
         // 以 "\n\n" 分割 chunk
         const parts = buffer.split('\n\n');
         buffer = parts.pop() || '';
@@ -115,7 +114,17 @@ export class AgentService {
 
     if (isParse) {
       try {
-        result.parsed = parse(yamlContent) as MRReview;
+        const mrReview = parse(yamlContent) as MRReview;
+        mrReview.reviews.forEach((review) => {
+          /**
+           * 防止 LLM 在尾部输出一些不必要的 \n 符号，导致后续使用的时候，出现异常
+           * 例如：'类型退化\n'
+           */
+          review.newPath = review.newPath.replace(/\n/g, '');
+          review.oldPath = review.oldPath.replace(/\n/g, '');
+          review.type = review.type.replace(/\n/g, '') as 'new' | 'old';
+        });
+        result.parsed = mrReview;
       } catch (e) {
         result.error = e instanceof Error ? e : new Error(String(e));
       }
