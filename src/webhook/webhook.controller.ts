@@ -4,10 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import { EnvConfig } from '../types';
 import { GitProvideService } from '../git-provide/git-provide.service';
 import { TokenHandler } from '../tokens';
+import { PatchHandler } from '../patch';
+import { AgentService } from '../agent/agent.service';
+import { extractFirstYamlFromMarkdown } from './utils';
 
 @Controller('webhook')
 export class WebhookController {
-  constructor(private readonly configService: ConfigService<EnvConfig>) {}
+  constructor(
+    private readonly configService: ConfigService<EnvConfig>,
+    private readonly agentService: AgentService,
+  ) {}
 
   @Post()
   async trigger(
@@ -26,20 +32,33 @@ export class WebhookController {
       baseUrl,
     });
 
-    const tokenHandler = new TokenHandler('gpt-4.1');
+    const tokenHandler = new TokenHandler('gpt2');
 
     const diffFiles = await gitProvider.getFullDiff();
 
-    const diffContentStr = diffFiles.reduce((pre, cur) => {
-      return pre + cur.diff;
-    }, '');
+    const patchHandler = new PatchHandler(diffFiles);
+
+    const extendedDiffContent = patchHandler.getExtendedDiffContent();
+
+    console.log('extendedDiffContent >>>', extendedDiffContent);
 
     const [tokenCount, availableTokenCount] =
-      tokenHandler.countTokensByModel(diffContentStr);
+      tokenHandler.countTokensByModel(extendedDiffContent);
 
-    console.log('tokenCount', tokenCount, availableTokenCount);
+    console.log('tokenCount >>>', tokenCount);
+    console.log('availableTokenCount >>>', availableTokenCount);
 
-    // 根据 availableTokenCount 扩容 diff 内容
+    const response = await this.agentService.getPrediction(extendedDiffContent);
+
+    const result = extractFirstYamlFromMarkdown(response);
+
+    if (result?.error) {
+      throw result.error;
+    }
+
+    const { parsed } = result || {};
+
+    console.log('parsed', parsed);
 
     return 'trigger';
   }

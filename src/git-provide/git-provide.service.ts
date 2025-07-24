@@ -35,19 +35,21 @@ export class GitProvideService {
   async getFullDiff() {
     await this.gitDiffFiles();
 
-    const tasks = this.changes.map(async (change) => {
-      change.newFileContent = await this.getFileContent(
-        change.new_path,
-        this.targetBranch,
-      );
+    this.filterNoCodeFile();
 
-      change.oldFileContent = await this.getFileContent(
-        change.old_path,
-        this.sourceBranch,
-      );
-    });
+    // const tasks = this.changes.map(async (change) => {
+    //   change.newFileContent = await this.getFileContent(
+    //     change.new_path,
+    //     this.targetBranch,
+    //   );
 
-    await Promise.all(tasks);
+    //   change.oldFileContent = await this.getFileContent(
+    //     change.old_path,
+    //     this.sourceBranch,
+    //   );
+    // });
+
+    // await Promise.all(tasks);
 
     return this.changes;
   }
@@ -77,6 +79,18 @@ export class GitProvideService {
     this.diffRefs = resJson.diff_refs;
 
     return resJson;
+  }
+
+  /**
+   * 过滤非代码文件
+   */
+  filterNoCodeFile() {
+    const codeFileSuffix = ['ts', 'tsx', 'js', 'jsx', 'vue', 'py'];
+    this.changes = this.changes.filter((change) => {
+      const newFileSuffix = change.new_path.split('.').pop() || '';
+
+      return codeFileSuffix.includes(newFileSuffix);
+    });
   }
 
   /**
