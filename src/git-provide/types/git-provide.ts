@@ -18,9 +18,11 @@ export interface ObjectAttributes {
   source_branch: string;
   target_branch: string;
   iid: number;
+  url: string;
 }
 
 export interface Project {
   name: string;
   id: number;
+  web_url: string;
 }

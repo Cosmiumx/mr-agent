@@ -11,6 +11,8 @@ export class GitProvideService {
   private mrId: number;
   private baseUrl: string;
   private gitlabToken: string;
+  private mrUrl: string;
+  private webUrl: string;
 
   private changes: Change[] = [];
   private diffRefs: DiffRefs;
@@ -24,6 +26,7 @@ export class GitProvideService {
 
   constructor(mrRequestBody: MrRequestBody, config: Config) {
     this.userName = mrRequestBody.user.username;
+    this.mrUrl = mrRequestBody.object_attributes.url;
     this.commitMessage = mrRequestBody.object_attributes.title;
     this.sourceBranch = mrRequestBody.object_attributes.source_branch;
     this.targetBranch = mrRequestBody.object_attributes.target_branch;
@@ -32,6 +35,7 @@ export class GitProvideService {
     this.mrId = mrRequestBody.object_attributes.iid;
     this.baseUrl = config.baseUrl;
     this.gitlabToken = config.gitlabToken;
+    this.webUrl = mrRequestBody.project.web_url;
 
     this.gitlabHeaders = {
       'PRIVATE-TOKEN': this.gitlabToken,
@@ -48,6 +52,8 @@ export class GitProvideService {
       projectName: this.projectName,
       projectId: this.projectId,
       mrId: this.mrId,
+      mrUrl: this.mrUrl,
+      webUrl: this.webUrl,
     };
   }
 
@@ -189,6 +195,31 @@ export class GitProvideService {
     const result = (await response.json()) as { id: string };
 
     console.log(`行级评论发送成功 - 文件: ${newPath}, 行号: ${endLine}, 评论ID: ${result.id}`);
+
+    return result;
+  }
+
+  async publishGeneralComment(issueContent: string) {
+    const { baseUrl, projectId, mrId, gitlabHeaders } = this;
+    const url = `${baseUrl}/api/v4/projects/${projectId}/merge_requests/${mrId}/notes`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: gitlabHeaders,
+      body: JSON.stringify({
+        body: issueContent,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`发送通用评论失败 (${response.status}):`, errorText);
+      return '';
+    }
+
+    const result = (await response.json()) as { id: string };
+
+    console.log(`完善报告发送成功 - 评论ID: ${result.id}`);
 
     return result;
   }

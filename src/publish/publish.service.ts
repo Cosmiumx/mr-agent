@@ -5,8 +5,8 @@ import { GitProvideService } from 'src/git-provide/git-provide.service';
 const issueCommentMarkdownTemplate =
   '<table><thead><tr><td><strong>问题</strong></td><td><strong>描述</strong></td></tr></thead><tbody><tr><td>__issue_header__</td><td>__issue_content__</td></tr></tbody></table>';
 
-// const issueReportMarkdownTemplate =
-//   '<tr><td>__issue_header__</td><td>__issue_code_url__</td><td>__issue_content__</td></tr>';
+const issueReportMarkdownTemplate =
+  '<tr><td>__issue_header__</td><td>__issue_code_url__</td><td>__issue_content__</td></tr>';
 
 @Injectable()
 export class PublishService {
@@ -22,12 +22,26 @@ export class PublishService {
         gitProvider.publishCommentToLine(newPath, oldPath, endLine, issueContentMarkdown, type);
       });
     } else {
-      // reviews.forEach((review) => {
-      // const { filePath, type, endLine, issueContent, issueHeader } = review;
-      // const issueContentMarkdown = issueReportMarkdownTemplate
-      //   .replace('__issue_header__', issueHeader)
-      //   .replace('__issue_content__', issueContent);
-      // });
+      const { webUrl, sourceBranch } = gitProvider.getMrInfo();
+      let issueContentMarkdown = '';
+      reviews.forEach((review) => {
+        const { newPath, type, startLine, endLine, issueContent, issueHeader } = review;
+        issueContentMarkdown += issueReportMarkdownTemplate
+          .replace('__issue_header__', issueHeader)
+          .replace(
+            '__issue_code_url__',
+            type === 'new'
+              ? `[${newPath} [${startLine}-${endLine}]](${webUrl}/-/blob/${sourceBranch}/${newPath}#L${startLine}-${endLine})`
+              : '-',
+          )
+          .replace('__issue_content__', issueContent);
+      });
+      gitProvider.publishGeneralComment(
+        `
+        ### 问题描述
+        
+        <table><thead><tr><td><strong>问题</strong></td><td><strong>代码位置</strong></td><td><strong>描述</strong></td></tr></thead><tbody>${issueContentMarkdown}</tbody></table>`,
+      );
     }
   }
 }
