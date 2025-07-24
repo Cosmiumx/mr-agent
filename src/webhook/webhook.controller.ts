@@ -6,7 +6,7 @@ import { GitProvideService } from '../git-provide/git-provide.service';
 import { TokenHandler } from '../tokens';
 import { PatchHandler } from '../patch';
 import { AgentService } from '../agent/agent.service';
-import { PublishService } from 'src/publish/publish.service';
+import { PublishService } from '../publish/publish.service';
 
 @Controller('webhook')
 export class WebhookController {
