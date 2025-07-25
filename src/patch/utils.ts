@@ -49,20 +49,30 @@ export const comptuedHunkLineNumer = (hunk: Hunk) => {
   const temp: Array<[string, string]> = [];
   const newHunkLines: string[] = [hunk.hunkLines[0]];
   let maxHaedLength = 0;
+  const oldLines: Map<number, string> = new Map();
+  const newLines: Map<number, string> = new Map();
 
   hunk.hunkLines.slice(1).forEach((line, index) => {
     let head = '';
     if (line.startsWith('-')) {
-      head = `(${oldStart + index}, )`;
+      const oldLineNumber = oldStart + index;
+      head = `(${oldLineNumber}, )`;
       temp.push([head, line]);
+      oldLines.set(oldLineNumber, line);
       maxHaedLength = Math.max(maxHaedLength, head.length);
     } else if (line.startsWith('+')) {
-      head = `( , ${newStart + index})`;
+      const newLineNumber = newStart + index;
+      head = `( , ${newLineNumber})`;
       temp.push([head, line]);
+      newLines.set(newLineNumber, line);
       maxHaedLength = Math.max(maxHaedLength, head.length);
     } else {
-      head = `(${oldStart + index}, ${newStart + index})`;
+      const oldLineNumber = oldStart + index;
+      const newLineNumber = newStart + index;
+      head = `(${oldLineNumber}, ${newLineNumber})`;
       temp.push([head, line]);
+      oldLines.set(oldLineNumber, line);
+      newLines.set(newLineNumber, line);
       maxHaedLength = Math.max(maxHaedLength, head.length);
     }
 
@@ -75,5 +85,5 @@ export const comptuedHunkLineNumer = (hunk: Hunk) => {
     newHunkLines.push(`${head.padEnd(maxHaedLength)} ${line}`);
   });
 
-  return newHunkLines;
+  return [newHunkLines, newLines, oldLines] as const;
 };

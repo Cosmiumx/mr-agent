@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { EnvConfig } from '../types';
 import { GitProvideService } from '../git-provide/git-provide.service';
 import { TokenHandler } from '../tokens';
-import { PatchHandler } from '../patch';
+import { PatchHandler } from '../patch/patch.service';
 import { AgentService } from '../agent/agent.service';
 import { PublishService } from '../publish/publish.service';
 import { AntDuplicateInterceptor, requestRecords } from './Interceptors/duplicate.interceptor';
@@ -53,7 +53,7 @@ export class WebhookController {
       console.log('reviews >>>', reviews);
 
       if (reviews) {
-        this.publishService.publish(mode, reviews, gitProvider);
+        this.publishService.publish(mode, reviews, gitProvider, patchHandler.getExtendedDiffFiles());
       }
     } catch (error) {
       requestRecords.delete(body.object_attributes.url);

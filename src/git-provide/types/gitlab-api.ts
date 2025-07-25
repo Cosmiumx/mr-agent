@@ -13,6 +13,9 @@ export interface Change {
   deleted_file: boolean;
   newFileContent: string;
   oldFileContent: string;
+  extendedDiff: string;
+  newLinesWithNumber: Map<number, string>;
+  oldLinesWithNumber: Map<number, string>;
 }
 
 export interface DiffRefs {
