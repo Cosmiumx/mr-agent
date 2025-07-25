@@ -70,6 +70,8 @@ export class WebhookController {
             `代码评审完毕 ${mode === 'report' ? mrUrl + '#note_' + id : mrUrl}`,
           );
         });
+      } else {
+        throw new Error('模型生成内容异常');
       }
     } catch (error) {
       requestRecords.delete(mrUrl);
