@@ -11,7 +11,13 @@ const issueReportMarkdownTemplate =
 
 @Injectable()
 export class PublishService {
-  publish(mode: 'report' | 'comment', reviews: Review[], gitProvider: GitProvideService, extendedDiffFiles: Change[]) {
+  async publish(
+    mode: 'report' | 'comment',
+    reviews: Review[],
+    gitProvider: GitProvideService,
+    extendedDiffFiles: Change[],
+    callback?: (res: string) => void,
+  ) {
     if (mode === 'comment') {
       reviews.forEach((review) => {
         const { newPath, oldPath, type, endLine, issueContent, issueHeader } = review;
@@ -22,6 +28,7 @@ export class PublishService {
 
         gitProvider.publishCommentToLine(newPath, oldPath, endLine, issueContentMarkdown, type);
       });
+      callback?.('');
     } else {
       const { webUrl, sourceBranch, targetBranch } = gitProvider.getMrInfo();
       let issueContentMarkdown = '';
@@ -42,9 +49,10 @@ export class PublishService {
             )
             .replace('__issue_content__', issueContent) + '\n';
       });
-      gitProvider.publishGeneralComment(
+      const id = await gitProvider.publishGeneralComment(
         `"<table>\n  <thead><tr><td><strong>问题</strong></td><td><strong>代码位置</strong></td><td><strong>描述</strong></td></tr></thead>\n  <tbody>\n${issueContentMarkdown}\n</tbody>\n</table>"`,
       );
+      callback?.(id);
     }
   }
 
@@ -68,5 +76,36 @@ export class PublishService {
     }
 
     return diffCode;
+  }
+
+  // 推送通知
+  publishNotification(
+    publishParams: {
+      pushUrl: string;
+      userName: string;
+      projectName: string;
+      sourceBranch: string;
+      targetBranch: string;
+    },
+    content: string,
+  ) {
+    const { pushUrl, userName, projectName, sourceBranch, targetBranch } = publishParams;
+    if (!pushUrl) {
+      return;
+    }
+    fetch(pushUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        msgtype: 'markdown',
+        markdown: {
+          content:
+            `**${userName}** 在项目 **${projectName}** 发起了合并请求\n源分支：**${sourceBranch}**\n目标分支：**${targetBranch}**\n\n` +
+            content,
+        },
+      }),
+    });
   }
 }

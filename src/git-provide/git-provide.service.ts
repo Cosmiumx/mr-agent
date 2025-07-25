@@ -221,6 +221,6 @@ export class GitProvideService {
 
     console.log(`完善报告发送成功 - 评论ID: ${result.id}`);
 
-    return result;
+    return result.id;
   }
 }
