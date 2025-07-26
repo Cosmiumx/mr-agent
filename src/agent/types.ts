@@ -55,4 +55,6 @@ export interface YamlContent {
   content: string;
   parsed: MRReview | null;
   error: any;
+  fixApplied: boolean | null;
+  fixedContent: string | null;
 }

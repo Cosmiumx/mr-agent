@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { DeepSeekChatResponse, MRReview, YamlContent } from './types';
+import { DeepSeekChatResponse } from './types';
 import { PromptService } from '../prompt/prompt.service';
 import { EnvConfig } from '../types';
 import { ConfigService } from '@nestjs/config';
-import { parse } from 'yaml';
+import { extractFirstYamlFromMarkdown } from './utils';
 
 @Injectable()
 export class AgentService {
@@ -21,7 +21,7 @@ export class AgentService {
 
   async getPrediction(query: string) {
     const answer = await this.callAgent(query);
-    const result = this.extractFirstYamlFromMarkdown(answer);
+    const result = extractFirstYamlFromMarkdown(answer);
 
     if (result?.error) {
       throw result.error;
@@ -95,41 +95,5 @@ export class AgentService {
       }
     }
     return answer;
-  }
-
-  extractFirstYamlFromMarkdown(markdownText: string, isParse = true) {
-    const regex = /```yaml\s*([\s\S]*?)\s*```/;
-    const match = regex.exec(markdownText);
-
-    if (!match) {
-      return null;
-    }
-
-    const yamlContent = match[1];
-    const result: YamlContent = {
-      content: yamlContent,
-      parsed: null,
-      error: null,
-    };
-
-    if (isParse) {
-      try {
-        const mrReview = parse(yamlContent) as MRReview;
-        mrReview.reviews.forEach((review) => {
-          /**
-           * 防止 LLM 在尾部输出一些不必要的 \n 符号，导致后续使用的时候，出现异常
-           * 例如：'类型退化\n'
-           */
-          review.newPath = review.newPath.replace(/\n/g, '');
-          review.oldPath = review.oldPath.replace(/\n/g, '');
-          review.type = review.type.replace(/\n/g, '') as 'new' | 'old';
-        });
-        result.parsed = mrReview;
-      } catch (e) {
-        result.error = e instanceof Error ? e : new Error(String(e));
-      }
-    }
-
-    return result;
   }
 }
