@@ -44,8 +44,8 @@ export class PublishService {
             .replace(
               '__issue_code_url__',
               type === 'new'
-                ? `[在 ${newPath} 中的第${startLine}到${endLine}行](${webUrl}/-/blob/${sourceBranch}/${newPath}?ref_type=heads#L${startLine}-${endLine}) \n  \n\`\`\`diff\n${diffCode}\n\`\`\`\n`
-                : `[在 ${oldPath} 中的第${startLine}到${endLine}行](${webUrl}/-/blob/${targetBranch}/${oldPath}?ref_type=heads#L${startLine}-${endLine}) \n  \n\`\`\`diff\n${diffCode}\n\`\`\`\n`,
+                ? `[在 ${newPath} 中的第${startLine}到${endLine}行](${webUrl}/-/blob/${sourceBranch}/${newPath}?ref_type=heads#L${startLine}-${endLine})\n<details><summary>diff</summary>\n\n\`\`\`diff\n${diffCode}\n\`\`\`\n\n</details>`
+                : `[在 ${oldPath} 中的第${startLine}到${endLine}行](${webUrl}/-/blob/${targetBranch}/${oldPath}?ref_type=heads#L${startLine}-${endLine})\n<details><summary>diff</summary>\n\n\`\`\`diff\n${diffCode}\n\`\`\`\n\n</details>`,
             )
             .replace('__issue_content__', issueContent) + '\n';
       });
