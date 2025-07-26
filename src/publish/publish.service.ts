@@ -50,7 +50,7 @@ export class PublishService {
             .replace('__issue_content__', issueContent) + '\n';
       });
       const id = await gitProvider.publishGeneralComment(
-        `"<table>\n  <thead><tr><td><strong>问题</strong></td><td><strong>代码位置</strong></td><td><strong>描述</strong></td></tr></thead>\n  <tbody>\n${issueContentMarkdown}\n</tbody>\n</table>"`,
+        `## 问题清单\n<table>\n  <thead><tr><td><strong>问题</strong></td><td><strong>代码位置</strong></td><td><strong>描述</strong></td></tr></thead>\n  <tbody>\n${issueContentMarkdown}\n</tbody>\n</table>`,
       );
       callback?.(id);
     }
