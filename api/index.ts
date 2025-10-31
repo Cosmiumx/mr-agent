@@ -19,8 +19,9 @@ async function createServerlessApp(): Promise<express.Application> {
     let AppModule;
     try {
       // 尝试相对路径（从 api/ 目录到 dist/src/）
-      // @ts-expect-error - 运行时文件存在，但 TypeScript 编译时无法解析
-      const module = await import('../dist/src/app.module.js');
+      // 使用字符串变量避免 TypeScript 编译时检查
+      const modulePath = '../dist/src/app.module.js';
+      const module = await import(modulePath);
       AppModule = module.AppModule;
     } catch (e1) {
       try {
