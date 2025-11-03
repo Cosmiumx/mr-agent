@@ -37,37 +37,20 @@ async function createServerlessApp(): Promise<express.Application> {
       }
     }
 
-    // 创建 Express 应用实例，但不进行任何配置
-    // 让 NestJS 通过 ExpressAdapter 完全控制
+    // 创建 Express 应用实例
+    // Express 4.18.2 版本不会对 app.router 抛出错误，只是警告
     const expressApp = express();
 
-    // 抑制 app.router 弃用警告
-    // 这个警告来自 Express 4.x，但不影响功能
-    // 通过重写 console.warn 来过滤这个特定的警告
-    const originalWarn = console.warn;
-    console.warn = (...args: unknown[]) => {
-      const message = args.join(' ');
-      if (!message.includes("'app.router' is deprecated") && 
-          !message.includes("app.router' is deprecated")) {
-        originalWarn.apply(console, args);
-      }
-    };
+    // 使用 ExpressAdapter 创建 NestJS 应用
+    // 让 NestJS 完全控制 Express 应用的配置
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const app = await NestFactory.create(AppModule as any, new ExpressAdapter(expressApp));
 
-    try {
-      // 使用 ExpressAdapter 创建 NestJS 应用
-      // 让 NestJS 完全控制 Express 应用的配置
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const app = await NestFactory.create(AppModule as any, new ExpressAdapter(expressApp));
+    // 启用 CORS（如果需要）
+    app.enableCors();
 
-      // 启用 CORS（如果需要）
-      app.enableCors();
-
-      // 初始化 NestJS 应用
-      await app.init();
-    } finally {
-      // 恢复原始 console.warn
-      console.warn = originalWarn;
-    }
+    // 初始化 NestJS 应用
+    await app.init();
 
     cachedApp = expressApp;
     return expressApp;
@@ -83,27 +66,8 @@ export default async function handler(req: express.Request, res: express.Respons
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (app as any)(req, res);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // 过滤 app.router 弃用警告，不将其作为错误返回
-    if (errorMessage.includes("'app.router' is deprecated") || 
-        errorMessage.includes("app.router' is deprecated")) {
-      console.warn('Suppressed app.router deprecation warning:', errorMessage);
-      // 如果响应还没有发送，尝试重新初始化应用
-      if (!res.headersSent) {
-        try {
-          // 清除缓存的应用，强制重新创建
-          cachedApp = null;
-          const app = await createServerlessApp();
-          return (app as any)(req, res);
-        } catch (retryError) {
-          console.error('Retry failed:', retryError);
-        }
-      }
-      return;
-    }
-    
     console.error('Handler error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     if (!res.headersSent) {
       res.status(500).json({ 
         error: 'Internal Server Error',
