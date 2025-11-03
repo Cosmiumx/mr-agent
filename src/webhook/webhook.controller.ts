@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Get, Body, Headers, UseInterceptors } from '@nestjs/common';
 import { MrRequestBody } from '../git-provide/types/git-provide';
 import { ConfigService } from '@nestjs/config';
 import { EnvConfig } from '../types';
@@ -16,6 +16,15 @@ export class WebhookController {
     private readonly agentService: AgentService,
     private readonly publishService: PublishService,
   ) {}
+
+  @Get('trigger')
+  getStatus() {
+    return {
+      status: 'ok',
+      message: 'Webhook endpoint is ready. Please use POST method to trigger webhook.',
+      endpoint: 'POST /webhook/trigger',
+    };
+  }
 
   @Post('trigger')
   @UseInterceptors(AntDuplicateInterceptor)
