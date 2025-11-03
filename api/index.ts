@@ -38,8 +38,11 @@ async function createServerlessApp(): Promise<express.Application> {
     }
 
     // 创建 Express 应用实例
-    // Express 4.17.3 不会对 app.router 抛出错误，只是警告
     const expressApp = express();
+    
+    // 为了避免 app.router 弃用警告，直接在实例上设置 router 属性
+    // 这样 NestJS 访问时就不会触发 Express 的弃用检查
+    (expressApp as any).router = [];
 
     // 使用 ExpressAdapter 创建 NestJS 应用
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
