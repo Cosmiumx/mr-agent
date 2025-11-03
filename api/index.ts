@@ -38,11 +38,18 @@ async function createServerlessApp(): Promise<express.Application> {
     }
 
     // 创建 Express 应用实例
-    // Express 4.18.2 版本不会对 app.router 抛出错误，只是警告
     const expressApp = express();
 
+    // 修复 Express 4.x 中 app.router 弃用错误
+    // NestJS 的 ExpressAdapter 会访问 app.router，但在 Express 4.18+ 中会抛出错误
+    // 覆盖 router getter 返回空数组以避免错误
+    Object.defineProperty(expressApp, 'router', {
+      get: () => [],
+      configurable: true,
+      enumerable: false,
+    });
+
     // 使用 ExpressAdapter 创建 NestJS 应用
-    // 让 NestJS 完全控制 Express 应用的配置
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const app = await NestFactory.create(AppModule as any, new ExpressAdapter(expressApp));
 
