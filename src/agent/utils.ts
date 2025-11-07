@@ -1,4 +1,4 @@
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { YamlContent, MRReview } from './types';
 
 export function fixYamlFormatIssues(yamlContent: string): string {
@@ -114,7 +114,7 @@ export function extractFirstYamlFromMarkdown(markdownText: string, isParse = tru
         console.log('格式修复成功，解析完成');
       } catch (fixError) {
         result.error = fixError instanceof Error ? fixError : new Error(String(fixError));
-        console.log('格式修复后仍然解析失败:', result.error.message);
+        console.log('格式修复后仍然解析失败:', result.error instanceof Error ? result.error.message : String(result.error));
       }
     }
   }
