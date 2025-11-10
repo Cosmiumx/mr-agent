@@ -74,6 +74,23 @@ async function createServerlessApp(): Promise<express.Application> {
 
 export default async function handler(req: express.Request, res: express.Response): Promise<void> {
   try {
+    // 打印请求路径信息用于调试
+    console.log('=== Request Path Debug ===');
+    console.log('req.method:', req.method);
+    console.log('req.url:', req.url);
+    console.log('req.path:', req.path);
+    console.log('req.originalUrl:', req.originalUrl);
+    console.log('req.baseUrl:', req.baseUrl);
+    console.log('========================');
+
+    // 在 Vercel 中，rewrites 可能会保留 /api 前缀，需要去掉
+    // 确保 NestJS 应用能正确匹配路由
+    const originalUrl = req.url;
+    if (req.url && req.url.startsWith('/api')) {
+      req.url = req.url.replace(/^\/api/, '') || '/';
+      console.log('Path transformed:', originalUrl, '->', req.url);
+    }
+
     const app = await createServerlessApp();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (app as any)(req, res);
@@ -81,9 +98,9 @@ export default async function handler(req: express.Request, res: express.Respons
     console.error('Handler error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     if (!res.headersSent) {
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Internal Server Error',
-        message: errorMessage
+        message: errorMessage,
       });
     }
   }
