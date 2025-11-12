@@ -49,21 +49,7 @@ async function createServerlessApp(): Promise<express.Application> {
     app.enableCors();
 
     // 初始化 NestJS 应用
-    // 注意：NestJS 的 ExpressAdapter 会访问 app.router，这在 Express 4.x 中会抛出弃用错误
-    // 这是 NestJS 框架的问题，我们捕获并忽略这个已知错误
-    try {
-      await app.init();
-    } catch (error) {
-      // 如果是 app.router 弃用错误（这是 NestJS ExpressAdapter 的已知问题），忽略它
-      // 应用实际上已经初始化成功，这个错误不影响功能
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes("'app.router' is deprecated")) {
-        // 静默忽略，这是框架层面的已知问题，不影响功能
-        return expressApp;
-      }
-      // 其他错误正常抛出
-      throw error;
-    }
+    await app.init();
 
     cachedApp = expressApp;
     return expressApp;
