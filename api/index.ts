@@ -44,6 +44,9 @@ async function createServerlessApp(): Promise<express.Application> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const app = await NestFactory.create(AppModule as any, new ExpressAdapter(expressApp));
 
+    // 设置全局路由前缀为 /api，这样所有路由都会自动加上 /api
+    app.setGlobalPrefix('api');
+
     // 启用 CORS（如果需要）
     app.enableCors();
 
@@ -78,25 +81,10 @@ export default async function handler(req: express.Request, res: express.Respons
     console.log('=== Request Path Debug ===');
     console.log('req.method:', req.method);
     console.log('req.url:', req.url);
-    console.log('req.path:', req.path);
-    console.log('req.originalUrl:', req.originalUrl);
-    console.log('req.baseUrl:', req.baseUrl);
     console.log('========================');
 
-    // 使用 [...slug].ts 后，Vercel 会直接路由所有 /api/* 到这里
-    // req.url 已经包含完整路径，只需要去掉 /api 前缀
-    let targetPath = req.url || '/';
-    
-    // 去掉 /api 前缀（如果有）
-    if (targetPath.startsWith('/api')) {
-      targetPath = targetPath.replace(/^\/api/, '') || '/';
-      console.log('Path after removing /api prefix:', targetPath);
-    }
-    
-    // 更新 req.url 为目标路径
-    req.url = targetPath;
-    console.log('Final target path for NestJS:', targetPath);
-
+    // 使用 setGlobalPrefix('api') 后，NestJS 会自动匹配 /api/* 路由
+    // 不需要手动处理路径，直接传递给 NestJS
     const app = await createServerlessApp();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (app as any)(req, res);
