@@ -81,15 +81,37 @@ export default async function handler(req: express.Request, res: express.Respons
     console.log('req.path:', req.path);
     console.log('req.originalUrl:', req.originalUrl);
     console.log('req.baseUrl:', req.baseUrl);
+    console.log('req.headers.x-now-route-matches:', req.headers['x-now-route-matches']);
     console.log('========================');
 
-    // 在 Vercel 中，rewrites 可能会保留 /api 前缀，需要去掉
-    // 确保 NestJS 应用能正确匹配路由
-    const originalUrl = req.url;
-    if (req.url && req.url.startsWith('/api')) {
-      req.url = req.url.replace(/^\/api/, '') || '/';
-      console.log('Path transformed:', originalUrl, '->', req.url);
+    // Vercel rewrites 会把所有请求转到 /api
+    // 但原始路径保存在 headers 中，我们需要从 req.url 或 x-now-route-matches 获取
+    // 由于所有请求都 rewrite 到 /api，我们需要使用原始 URL
+    
+    // 方法：从 x-now-route-matches 或 x-vercel-proxied-for 获取原始路径
+    const routeMatches = req.headers['x-now-route-matches'] as string;
+    let targetPath = req.url;
+    
+    if (routeMatches) {
+      // 解码路由匹配参数
+      try {
+        const matches = JSON.parse(Buffer.from(routeMatches, 'base64').toString());
+        if (matches['1']) {
+          targetPath = '/' + matches['1'];
+          console.log('Decoded path from route matches:', targetPath);
+        }
+      } catch (e) {
+        console.error('Failed to decode route matches:', e);
+      }
     }
+    
+    // 如果是 /api 路径，去掉前缀
+    if (targetPath.startsWith('/api')) {
+      targetPath = targetPath.replace(/^\/api/, '') || '/';
+    }
+    
+    console.log('Final target path:', targetPath);
+    req.url = targetPath;
 
     const app = await createServerlessApp();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
