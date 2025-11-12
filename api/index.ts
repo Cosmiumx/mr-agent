@@ -78,10 +78,27 @@ export default async function handler(req: express.Request, res: express.Respons
     console.log('=== Request Path Debug ===');
     console.log('req.method:', req.method);
     console.log('req.url:', req.url);
+    console.log('req.headers[x-now-route-matches]:', req.headers['x-now-route-matches']);
+    console.log('req.headers[x-vercel-forwarded-for]:', req.headers['x-vercel-forwarded-for']);
     console.log('========================');
 
-    // 使用 setGlobalPrefix('api') 后，NestJS 会自动匹配 /api/* 路由
-    // 不需要手动处理路径，直接传递给 NestJS
+    // Vercel rewrites 会把原始路径保存在 x-now-route-matches header 中
+    // 需要从这个 header 解码原始路径
+    const routeMatches = req.headers['x-now-route-matches'] as string;
+    if (routeMatches) {
+      try {
+        const decoded = Buffer.from(routeMatches, 'base64').toString();
+        const matches = JSON.parse(decoded);
+        // matches['1'] 包含捕获组的值（原始路径）
+        if (matches['1']) {
+          req.url = '/' + matches['1'];
+          console.log('Decoded original path:', req.url);
+        }
+      } catch (e) {
+        console.error('Failed to decode route matches:', e);
+      }
+    }
+
     const app = await createServerlessApp();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (app as any)(req, res);
