@@ -1,100 +1,77 @@
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import { INestApplication } from '@nestjs/common';
 import express from 'express';
 import { join } from 'path';
 
-let cachedApp: express.Application | null = null;
+let cachedApp: INestApplication | null = null;
 
-async function createServerlessApp(): Promise<express.Application> {
+async function bootstrap(): Promise<INestApplication> {
   if (cachedApp) {
     return cachedApp;
   }
 
   try {
-    // 动态导入编译后的 AppModule
-    // 在 Vercel serverless 环境中，使用相对路径更可靠
-    // 尝试多个可能的路径以确保兼容性
+    // 动态导入 AppModule
     let AppModule;
     try {
-      // 尝试相对路径（从 api/ 目录到 dist/src/）
-      // 使用字符串变量避免 TypeScript 编译时检查
       const modulePath = '../dist/src/app.module.js';
       const module = await import(modulePath);
-      AppModule = (module as { AppModule: unknown }).AppModule;
+      AppModule = module.AppModule;
     } catch (e1) {
-      try {
-        // 如果失败，尝试使用 process.cwd()
-        const distPath = join(process.cwd(), 'dist', 'src', 'app.module.js');
-        const module = await import(distPath);
-        AppModule = (module as { AppModule: unknown }).AppModule;
-      } catch (e2) {
-        console.error('Failed to import AppModule:', {
-          e1: e1 instanceof Error ? e1.message : String(e1),
-          e2: e2 instanceof Error ? e2.message : String(e2),
-          cwd: process.cwd(),
-        });
-        throw e2;
-      }
+      const distPath = join(process.cwd(), 'dist', 'src', 'app.module.js');
+      const module = await import(distPath);
+      AppModule = module.AppModule;
     }
 
-    // 创建 Express 应用实例
+    // 创建 Express 实例
     const expressApp = express();
 
-    // 使用 ExpressAdapter 创建 NestJS 应用
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const app = await NestFactory.create(AppModule as any, new ExpressAdapter(expressApp));
+    // 创建 NestJS 应用
+    const app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(expressApp),
+      { logger: ['error', 'warn', 'log'] }
+    );
 
-    // 不设置全局前缀，让路由保持原样（如 /webhook/trigger）
-    // 启用 CORS（如果需要）
+    // 启用 CORS
     app.enableCors();
 
-    // 初始化 NestJS 应用
-    // 注意：Express 4.x 的 app.router 已废弃，但 NestJS 可能会访问它
-    // 我们先初始化，即使抛出错误，路由也已经注册了
-    try {
-      await app.init();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      // 如果是 app.router 废弃警告，路由实际上已经注册成功，可以安全忽略
-      if (!errorMessage.includes("'app.router' is deprecated")) {
-        // 其他错误需要抛出
-        console.error('Failed to initialize NestJS app:', error);
-        throw error;
-      }
-      // app.router 错误忽略，继续执行
-      console.log('Ignoring app.router deprecation warning');
-    }
+    // 初始化应用（这会注册所有路由）
+    await app.init();
 
-    cachedApp = expressApp;
-    return expressApp;
+    console.log('NestJS application initialized successfully');
+
+    // 缓存 NestJS 应用实例
+    cachedApp = app;
+    return app;
   } catch (error) {
-    console.error('Failed to create serverless app:', error);
+    console.error('Failed to bootstrap NestJS app:', error);
     throw error;
   }
 }
 
-export default async function handler(req: express.Request, res: express.Response): Promise<void> {
+export default async function handler(req: express.Request, res: express.Response) {
   try {
-    // 打印请求路径信息用于调试
-    console.log('=== Request Path Debug ===');
-    console.log('req.method:', req.method);
-    console.log('req.url:', req.url);
-    console.log('========================');
+    console.log(`[${req.method}] ${req.url}`);
 
-    // 使用 setGlobalPrefix('api') 后，所有路由都会匹配 /api/* 路径
-    // Vercel 会自动把 /api/* 请求路由到这个函数
-    // 不需要任何路径转换，直接传递给 NestJS 处理
-    const app = await createServerlessApp();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (app as any)(req, res);
+    // 获取 NestJS 应用实例
+    const app = await bootstrap();
+
+    // 获取底层的 Express 实例
+    const httpAdapter = app.getHttpAdapter();
+    const expressInstance = httpAdapter.getInstance();
+
+    // 让 Express 处理请求
+    expressInstance(req, res);
   } catch (error) {
     console.error('Handler error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Internal Server Error',
-        message: errorMessage,
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }
 }
+
