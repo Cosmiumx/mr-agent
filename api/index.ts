@@ -1,16 +1,10 @@
 import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
-import { INestApplication } from '@nestjs/common';
-import express from 'express';
 import { join } from 'path';
 
-let cachedApp: INestApplication | null = null;
+// 按照文章的方式：缓存 Express handler 实例
+let handler: any = null;
 
-async function bootstrap(): Promise<INestApplication> {
-  if (cachedApp) {
-    return cachedApp;
-  }
-
+async function bootstrap() {
   try {
     // 动态导入 AppModule
     let AppModule;
@@ -24,57 +18,39 @@ async function bootstrap(): Promise<INestApplication> {
       AppModule = module.AppModule;
     }
 
-    // 创建 Express 实例
-    const expressApp = express();
-
-    // 创建 NestJS 应用
-    const app = await NestFactory.create(
-      AppModule,
-      new ExpressAdapter(expressApp),
-      { logger: ['error', 'warn', 'log'] }
-    );
+    // 创建 NestJS 应用（不需要手动创建 Express 实例）
+    const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log'] });
 
     // 启用 CORS
     app.enableCors();
 
     // 初始化应用（这会注册所有路由）
-    // 注意：Express 4.x 的 app.router 已废弃，NestJS 在初始化时可能会触发错误
-    // 但路由实际上已经注册成功，可以安全忽略这个错误
-    try {
-      await app.init();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (!errorMessage.includes("'app.router' is deprecated")) {
-        console.error('Failed to initialize NestJS app:', error);
-        throw error;
-      }
-      console.log('Ignoring app.router deprecation warning - routes are registered');
-    }
+    await app.init();
 
-    console.log('NestJS application initialized successfully');
-
-    // 缓存 NestJS 应用实例
-    cachedApp = app;
-    return app;
+    // 获取底层的 Express 实例并返回
+    const expressApp = app.getHttpAdapter().getInstance();
+    
+    console.log('NestJS application bootstrapped successfully');
+    
+    return expressApp;
   } catch (error) {
-    console.error('Failed to bootstrap NestJS app:', error);
+    console.error('Failed to bootstrap app:', error);
     throw error;
   }
 }
 
-export default async function handler(req: express.Request, res: express.Response) {
+// 按照文章的模式导出 handler
+export default async (req: any, res: any) => {
   try {
     console.log(`[${req.method}] ${req.url}`);
-
-    // 获取 NestJS 应用实例
-    const app = await bootstrap();
-
-    // 获取底层的 Express 实例
-    const httpAdapter = app.getHttpAdapter();
-    const expressInstance = httpAdapter.getInstance();
-
-    // 让 Express 处理请求
-    expressInstance(req, res);
+    
+    // 第一次调用时初始化应用并缓存 handler
+    if (!handler) {
+      handler = await bootstrap();
+    }
+    
+    // 使用缓存的 Express 实例处理请求
+    return handler(req, res);
   } catch (error) {
     console.error('Handler error:', error);
     if (!res.headersSent) {
@@ -84,5 +60,5 @@ export default async function handler(req: express.Request, res: express.Respons
       });
     }
   }
-}
+};
 
