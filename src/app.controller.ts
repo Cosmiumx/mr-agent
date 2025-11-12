@@ -7,19 +7,51 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  getHello(@Req() req: Request): any {
+    const routeMatches = req.headers['x-now-route-matches'] as string;
+    let decodedPath: any = null;
+    if (routeMatches) {
+      try {
+        const decoded = Buffer.from(routeMatches, 'base64').toString();
+        decodedPath = JSON.parse(decoded);
+      } catch (e) {
+        decodedPath = 'decode_error: ' + String(e);
+      }
+    }
+    
+    return {
+      message: 'Hello World!',
+      debug: {
+        url: req.url,
+        originalUrl: req.originalUrl,
+        'x-now-route-matches': routeMatches,
+        decodedPath: decodedPath,
+      }
+    };
   }
 
   @Get('debug')
   getDebug(@Req() req: Request): any {
+    const routeMatches = req.headers['x-now-route-matches'] as string;
+    let decodedPath: any = null;
+    if (routeMatches) {
+      try {
+        const decoded = Buffer.from(routeMatches, 'base64').toString();
+        decodedPath = JSON.parse(decoded);
+      } catch (e) {
+        decodedPath = 'decode_error: ' + String(e);
+      }
+    }
+    
     return {
       url: req.url,
       originalUrl: req.originalUrl,
       path: req.path,
       baseUrl: req.baseUrl,
       method: req.method,
-      headers: req.headers,
+      'x-now-route-matches': routeMatches,
+      decodedPath: decodedPath,
+      allHeaders: req.headers,
     };
   }
 }
