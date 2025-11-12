@@ -55,6 +55,20 @@ export class AppController {
     };
   }
 
+  @Get('test')
+  test(): any {
+    return { message: 'Test route works!' };
+  }
+
+  @Get('webhook/trigger')
+  webhookTriggerProxy(): any {
+    return {
+      status: 'ok',
+      message: 'Webhook endpoint is ready (from AppController). Please use POST method to trigger webhook.',
+      endpoint: 'POST /webhook/trigger',
+    };
+  }
+
   @Get('*')
   catchAll(@Req() req: Request): any {
     const routeMatches = req.headers['x-now-route-matches'] as string;
