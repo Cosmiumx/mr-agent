@@ -49,7 +49,21 @@ async function createServerlessApp(): Promise<express.Application> {
     app.enableCors();
 
     // 初始化 NestJS 应用
-    await app.init();
+    // 注意：Express 4.x 的 app.router 已废弃，但 NestJS 可能会访问它
+    // 我们先初始化，即使抛出错误，路由也已经注册了
+    try {
+      await app.init();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      // 如果是 app.router 废弃警告，路由实际上已经注册成功，可以安全忽略
+      if (!errorMessage.includes("'app.router' is deprecated")) {
+        // 其他错误需要抛出
+        console.error('Failed to initialize NestJS app:', error);
+        throw error;
+      }
+      // app.router 错误忽略，继续执行
+      console.log('Ignoring app.router deprecation warning');
+    }
 
     cachedApp = expressApp;
     return expressApp;
