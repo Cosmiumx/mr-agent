@@ -2,10 +2,10 @@
   "version": 2,
   "installCommand": "pnpm install",
   "buildCommand": "pnpm run build",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/api"
+      "src": "/(.*)",
+      "dest": "/api"
     }
   ]
 }
