@@ -44,9 +44,7 @@ async function createServerlessApp(): Promise<express.Application> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const app = await NestFactory.create(AppModule as any, new ExpressAdapter(expressApp));
 
-    // 设置全局前缀 /api，这样所有路由都会变成 /api/*
-    app.setGlobalPrefix('api');
-
+    // 不设置全局前缀，让路由保持原样（如 /webhook/trigger）
     // 启用 CORS（如果需要）
     app.enableCors();
 
